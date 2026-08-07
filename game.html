@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Math Waiter</title>
+<style>
+  body { font-family: sans-serif; text-align: center; padding: 40px; }
+  input { font-size: 24px; padding: 10px; width: 100px; text-align: center; }
+  button { font-size: 24px; padding: 10px 20px; cursor: pointer; }
+  #scoreDisplay { font-weight: bold; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+  <h1>Math Waiter</h1>
+  <div id="scoreDisplay">Score: 0</div>
+  <h2 id="question"></h2>
+  <input type="number" id="answer" autofocus>
+  <button onclick="checkAnswer()">Submit</button>
+
+  <script>
+    let score = parseInt(localStorage.getItem('mathScore')) || 0;
+    let currentAnswer = 0;
+    
+    function updateScore() {
+      document.getElementById('scoreDisplay').innerText = 'Score: ' + score;
+    }
+
+    function generateQuestion() {
+      let difficulty = Math.floor(score / 5) + 1;
+      let maxNum = difficulty * 10;
+      let a = Math.floor(Math.random() * maxNum) + 1;
+      let b = Math.floor(Math.random() * maxNum) + 1;
+      
+      currentAnswer = a + b;
+      document.getElementById('question').innerText = a + ' + ' + b + ' = ?';
+      document.getElementById('answer').value = '';
+      document.getElementById('answer').focus();
+    }
+
+    function checkAnswer() {
+      let userAns = parseInt(document.getElementById('answer').value);
+      if (userAns === currentAnswer) {
+        score++;
+        localStorage.setItem('mathScore', score);
+        updateScore();
+        generateQuestion();
+      } else {
+        document.getElementById('answer').value = '';
+        document.getElementById('answer').focus();
+      }
+    }
+
+    document.getElementById('answer').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') checkAnswer();
+    });
+
+    updateScore();
+    generateQuestion();
+  </script>
+</body>
+</html>
