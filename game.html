@@ -3,49 +3,204 @@
 <head>
 <title>Math Waiter</title>
 <style>
-  body { font-family: sans-serif; text-align: center; padding: 40px; }
-  input { font-size: 24px; padding: 10px; width: 100px; text-align: center; }
-  button { font-size: 24px; padding: 10px 20px; cursor: pointer; }
-  #scoreDisplay { font-weight: bold; margin-bottom: 20px; }
+  :root {
+    --bg: #1e1e2e;
+    --text: #cdd6f4;
+    --accent: #89b4fa;
+    --danger: #f38ba8;
+    --surface: #313244;
+  }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--accent);
+  }
+  .stats-container {
+    display: flex;
+    gap: 20px;
+    background: var(--surface);
+    padding: 15px 30px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  }
+  .stats {
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+  #timer {
+    color: var(--danger);
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 30px;
+  }
+  #question {
+    font-size: 3.5rem;
+    margin: 20px 0;
+    letter-spacing: 2px;
+  }
+  .input-group {
+    display: flex;
+    gap: 15px;
+  }
+  input {
+    font-size: 2rem;
+    padding: 10px 20px;
+    width: 150px;
+    text-align: center;
+    border: 2px solid var(--surface);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus {
+    border-color: var(--accent);
+  }
+  button {
+    font-size: 1.5rem;
+    padding: 10px 25px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--bg);
+    cursor: pointer;
+    font-weight: bold;
+    transition: opacity 0.2s;
+  }
+  button:hover {
+    opacity: 0.8;
+  }
 </style>
 </head>
 <body>
   <h1>Math Waiter</h1>
-  <div id="scoreDisplay">Score: 0</div>
+  
+  <div class="stats-container">
+    <div class="stats">High Score: <span id="highScoreDisplay">0</span></div>
+    <div class="stats">Score: <span id="scoreDisplay">0</span></div>
+    <div class="stats">Lives: <span id="livesDisplay">3</span></div>
+  </div>
+  
+  <div id="timer">Time: 10s</div>
   <h2 id="question"></h2>
-  <input type="number" id="answer" autofocus>
-  <button onclick="checkAnswer()">Submit</button>
+  
+  <div class="input-group">
+    <input type="number" id="answer" autofocus autocomplete="off">
+    <button onclick="checkAnswer()">Submit</button>
+  </div>
 
   <script>
-    let score = parseInt(localStorage.getItem('mathScore')) || 0;
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem('mathHighScore')) || 0;
+    let lives = 3;
     let currentAnswer = 0;
-    
-    function updateScore() {
-      document.getElementById('scoreDisplay').innerText = 'Score: ' + score;
+    let timeLeft = 10;
+    let timerInterval;
+
+    document.getElementById('highScoreDisplay').innerText = highScore;
+
+    function updateUI() {
+      document.getElementById('scoreDisplay').innerText = score;
+      document.getElementById('livesDisplay').innerText = lives;
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      
+      timeLeft = Math.max(10 - Math.floor(score / 10), 3); 
+      document.getElementById('timer').innerText = 'Time: ' + timeLeft + 's';
+      
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer').innerText = 'Time: ' + timeLeft + 's';
+        if (timeLeft <= 0) {
+          handleWrong();
+        }
+      }, 1000);
+    }
+
+    function handleWrong() {
+      lives--;
+      updateUI();
+      if (lives <= 0) {
+        gameOver();
+      } else {
+        generateQuestion();
+      }
+    }
+
+    function gameOver() {
+      clearInterval(timerInterval);
+      alert('Game Over! Final Score: ' + score);
+      score = 0;
+      lives = 3;
+      generateQuestion();
     }
 
     function generateQuestion() {
-      let difficulty = Math.floor(score / 5) + 1;
-      let maxNum = difficulty * 10;
-      let a = Math.floor(Math.random() * maxNum) + 1;
-      let b = Math.floor(Math.random() * maxNum) + 1;
+      updateUI();
       
-      currentAnswer = a + b;
-      document.getElementById('question').innerText = a + ' + ' + b + ' = ?';
+      let ops = ['+'];
+      let maxNum = 10 + (score * 2);
+      
+      if (score >= 5) ops.push('-');
+      if (score >= 15) { ops.push('*'); maxNum = 12 + Math.floor(score / 2); }
+      if (score >= 30) { ops.push('/'); maxNum = 20 + score; }
+      
+      let op = ops[Math.floor(Math.random() * ops.length)];
+      let a, b;
+
+      if (op === '+') {
+        a = Math.floor(Math.random() * maxNum) + 1;
+        b = Math.floor(Math.random() * maxNum) + 1;
+        currentAnswer = a + b;
+      } else if (op === '-') {
+        a = Math.floor(Math.random() * maxNum) + 1;
+        b = Math.floor(Math.random() * a) + 1; 
+        currentAnswer = a - b;
+      } else if (op === '*') {
+        let maxFactor = Math.min(maxNum, 12);
+        a = Math.floor(Math.random() * maxFactor) + 1;
+        b = Math.floor(Math.random() * maxFactor) + 1;
+        currentAnswer = a * b;
+      } else if (op === '/') {
+        let maxDivisor = Math.min(maxNum, 12);
+        b = Math.floor(Math.random() * maxDivisor) + 1;
+        currentAnswer = Math.floor(Math.random() * 12) + 1;
+        a = b * currentAnswer; 
+      }
+      
+      document.getElementById('question').innerText = a + ' ' + op + ' ' + b + ' = ?';
       document.getElementById('answer').value = '';
       document.getElementById('answer').focus();
+      startTimer();
     }
 
     function checkAnswer() {
       let userAns = parseInt(document.getElementById('answer').value);
       if (userAns === currentAnswer) {
         score++;
-        localStorage.setItem('mathScore', score);
-        updateScore();
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem('mathHighScore', highScore);
+          document.getElementById('highScoreDisplay').innerText = highScore;
+        }
         generateQuestion();
       } else {
-        document.getElementById('answer').value = '';
-        document.getElementById('answer').focus();
+        handleWrong();
       }
     }
 
@@ -53,7 +208,6 @@
       if (e.key === 'Enter') checkAnswer();
     });
 
-    updateScore();
     generateQuestion();
   </script>
 </body>
