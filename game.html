@@ -67,12 +67,13 @@
     flex-direction: column;
     align-items: center;
     width: 100%;
-    max-width: 400px;
+    max-width: 600px;
   }
   #question {
     font-size: 4rem;
     margin: 0 0 20px 0;
     letter-spacing: 2px;
+    text-align: center;
   }
   .timer-container {
     width: 100%;
@@ -97,7 +98,7 @@
   input {
     font-size: 2rem;
     padding: 10px 20px;
-    width: 150px;
+    width: 250px;
     text-align: center;
     border: 2px solid var(--surface);
     border-radius: 8px;
@@ -123,7 +124,7 @@
     opacity: 0.8;
   }
   
-  #modal {
+  .modal {
     display: none;
     position: fixed;
     top: 0;
@@ -142,13 +143,16 @@
     border-radius: 12px;
     text-align: center;
     box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    min-width: 350px;
+    min-width: 400px;
   }
   .modal-content h2 {
     margin-top: 0;
-    color: var(--danger);
-    font-size: 2rem;
+    font-size: 2.5rem;
   }
+  .text-danger { color: var(--danger); }
+  .text-success { color: var(--success); }
+  .text-accent { color: var(--accent); }
+  
   .modal-content p {
     font-size: 1.2rem;
     margin: 10px 0 20px 0;
@@ -173,6 +177,7 @@
   <h1>Math Waiter</h1>
   
   <div class="stats-container">
+    <div class="stats">Lvl: <span id="levelDisplay">1</span></div>
     <div class="stats">Score: <span id="scoreDisplay">0</span></div>
     <div id="hearts-container"></div>
   </div>
@@ -190,9 +195,9 @@
     </div>
   </div>
 
-  <div id="modal">
+  <div id="gameOverModal" class="modal">
     <div class="modal-content">
-      <h2>Round Over</h2>
+      <h2 id="endTitle" class="text-danger">Round Over</h2>
       <p>Final Score: <strong id="modalScore">0</strong></p>
       
       <table>
@@ -211,21 +216,50 @@
     </div>
   </div>
 
+  <div id="levelUpModal" class="modal">
+    <div class="modal-content">
+      <h2 class="text-accent">Level Up!</h2>
+      <p id="levelUpMessage">New mechanics added.</p>
+      <button id="nextLevelBtn" onclick="startNextLevel()">Continue</button>
+    </div>
+  </div>
+
   <script>
     let score = 0;
+    let level = 1;
     let leaderboard = JSON.parse(localStorage.getItem('mathLeaderboard')) || [];
     let lives = 3;
     let currentAnswer = 0;
-    let totalTime = 10;
-    let timeLeft = 10;
+    let timeLeft = 20;
+    const totalTime = 20;
     let timerInterval;
+    let isPaused = false;
 
     const timerBar = document.getElementById('timer-bar');
     const heartFull = '<svg class="heart" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
     const heartEmpty = '<svg class="heart heart-empty" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
 
+    const levelConfigs = {
+      1: { ops: ['+', '-'], addA: [10, 99], addB: [10, 99], msg: "Start: 2v2 Add/Sub" },
+      2: { ops: ['+', '-', '*', '/'], addA: [100, 999], addB: [10, 99], mulA: [2, 9], mulB: [2, 9], msg: "3v2 Add/Sub & 1v1 Mul/Div" },
+      3: { ops: ['+', '-', '*', '/'], addA: [100, 999], addB: [100, 999], mulA: [2, 9], mulB: [2, 9], msg: "3v3 Add/Sub" },
+      4: { ops: ['+', '-', '*', '/'], addA: [100, 999], addB: [100, 999], mulA: [10, 99], mulB: [2, 9], msg: "2v1 Mul/Div" },
+      5: { ops: ['+', '-', '*', '/', '^2', '√'], addA: [1000, 9999], addB: [100, 999], mulA: [10, 99], mulB: [2, 9], sq: [2, 12], msg: "4v3 Add/Sub & Sq/Root Unlocked" },
+      6: { ops: ['+', '-', '*', '/', '^2', '√'], addA: [1000, 9999], addB: [1000, 9999], mulA: [10, 99], mulB: [2, 9], sq: [2, 12], msg: "4v4 Add/Sub" },
+      7: { ops: ['+', '-', '*', '/', '^2', '√'], addA: [1000, 9999], addB: [1000, 9999], mulA: [10, 19], mulB: [10, 19], sq: [2, 12], msg: "2v2 Mul/Div (10-19)" },
+      8: { ops: ['+', '-', '*', '/', '^2', '√'], addA: [10000, 99999], addB: [1000, 9999], mulA: [10, 19], mulB: [10, 19], sq: [13, 20], msg: "5v4 Add/Sub & Harder Sq/Root" },
+      9: { ops: ['+', '-', '*', '/', '^2', '√'], addA: [10000, 99999], addB: [10000, 99999], mulA: [20, 50], mulB: [10, 19], sq: [13, 20], msg: "5v5 Add/Sub & 2v2 Mul/Div (Hard)" },
+      10: { ops: ['+', '-', '*', '/', '^2', '√'], addA: [10000, 99999], addB: [10000, 99999], mulA: [21, 99], mulB: [21, 99], sq: [21, 30], msg: "Final Level: Maximum Difficulty" }
+    };
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
     function updateUI() {
+      level = Math.min(Math.floor(score / 10) + 1, 10);
       document.getElementById('scoreDisplay').innerText = score;
+      document.getElementById('levelDisplay').innerText = level;
       let heartsHtml = '';
       for (let i = 0; i < 3; i++) {
         heartsHtml += (i < lives) ? heartFull : heartEmpty;
@@ -235,49 +269,36 @@
 
     function setProgress(percent) {
       timerBar.style.width = percent + '%';
-      
-      if (percent > 50) {
-        timerBar.style.backgroundColor = 'var(--success)';
-      } else if (percent > 20) {
-        timerBar.style.backgroundColor = 'var(--warning)';
-      } else {
-        timerBar.style.backgroundColor = 'var(--danger)';
-      }
+      if (percent > 50) timerBar.style.backgroundColor = 'var(--success)';
+      else if (percent > 20) timerBar.style.backgroundColor = 'var(--warning)';
+      else timerBar.style.backgroundColor = 'var(--danger)';
     }
 
     function startTimer() {
       clearInterval(timerInterval);
-      
-      totalTime = Math.max(10 - Math.floor(score / 10), 3); 
       timeLeft = totalTime;
       setProgress(100);
       
       timerInterval = setInterval(() => {
+        if (isPaused) return;
         timeLeft -= 0.1;
         setProgress((timeLeft / totalTime) * 100);
         
-        if (timeLeft <= 0) {
-          triggerDamage();
-        }
+        if (timeLeft <= 0) triggerDamage();
       }, 100);
     }
 
     function triggerDamage() {
       document.body.classList.add('damage-flash');
-      setTimeout(() => {
-        document.body.classList.remove('damage-flash');
-      }, 150);
+      setTimeout(() => document.body.classList.remove('damage-flash'), 150);
       handleWrong();
     }
 
     function handleWrong() {
       lives--;
       updateUI();
-      if (lives <= 0) {
-        gameOver();
-      } else {
-        generateQuestion();
-      }
+      if (lives <= 0) endGame(false);
+      else generateQuestion();
     }
 
     function saveScore() {
@@ -295,86 +316,98 @@
     function renderLeaderboard() {
       const tbody = document.getElementById('leaderboardBody');
       tbody.innerHTML = '';
-      
       if (leaderboard.length === 0) {
         tbody.innerHTML = '<tr><td colspan="3">No scores yet</td></tr>';
         return;
       }
-
       leaderboard.forEach((entry, index) => {
-        const row = `<tr>
-          <td>${index + 1}</td>
-          <td>${entry.score}</td>
-          <td>${entry.timestamp}</td>
-        </tr>`;
-        tbody.innerHTML += row;
+        tbody.innerHTML += `<tr><td>${index + 1}</td><td>${entry.score}</td><td>${entry.timestamp}</td></tr>`;
       });
     }
 
-    function gameOver() {
+    function endGame(isWin) {
       clearInterval(timerInterval);
       saveScore();
       renderLeaderboard();
       
+      const title = document.getElementById('endTitle');
+      if (isWin) {
+        title.innerText = "You Win!";
+        title.className = "text-success";
+      } else {
+        title.innerText = "Round Over";
+        title.className = "text-danger";
+      }
+
       document.getElementById('modalScore').innerText = score;
-      document.getElementById('modal').style.display = 'flex';
+      document.getElementById('gameOverModal').style.display = 'flex';
       document.getElementById('answer').blur();
+      isPaused = true;
     }
 
     function resetGame() {
-      document.getElementById('modal').style.display = 'none';
+      document.getElementById('gameOverModal').style.display = 'none';
       score = 0;
+      level = 1;
       lives = 3;
+      isPaused = false;
+      generateQuestion();
+    }
+
+    function showLevelUp() {
+      isPaused = true;
+      clearInterval(timerInterval);
+      const conf = levelConfigs[Math.min(Math.floor(score / 10) + 1, 10)];
+      
+      document.getElementById('levelUpMessage').innerText = conf.msg;
+      document.getElementById('levelUpModal').style.display = 'flex';
+      document.getElementById('answer').blur();
+      document.getElementById('nextLevelBtn').focus();
+    }
+
+    function startNextLevel() {
+      document.getElementById('levelUpModal').style.display = 'none';
+      isPaused = false;
       generateQuestion();
     }
 
     function generateQuestion() {
       updateUI();
+      const conf = levelConfigs[level];
+      const op = conf.ops[Math.floor(Math.random() * conf.ops.length)];
       
-      let ops = ['+'];
-      let maxNum = 20 + (score * 2);
-      
-      if (score >= 2) ops.push('-');
-      if (score >= 5) { ops.push('*'); maxNum = 12 + Math.floor(score / 2); }
-      if (score >= 8) { ops.push('/'); maxNum = 20 + score; }
-      if (score >= 40) { ops.push('^2', '√'); }
-      
-      let op = ops[Math.floor(Math.random() * ops.length)];
       let a, b;
       let questionText = "";
 
       if (op === '+') {
-        a = Math.floor(Math.random() * (maxNum - 10)) + 10;
-        b = Math.floor(Math.random() * (maxNum - 10)) + 10;
+        a = randomInt(conf.addA[0], conf.addA[1]);
+        b = randomInt(conf.addB[0], conf.addB[1]);
         currentAnswer = a + b;
-        questionText = a + ' + ' + b;
+        questionText = `${a} + ${b}`;
       } else if (op === '-') {
-        a = Math.floor(Math.random() * (maxNum - 10)) + 10;
-        let maxB = a - 1;
-        b = Math.floor(Math.random() * (maxB - 10 + 1)) + 10;
-        if (b < 10) b = 10;
+        a = randomInt(conf.addA[0], conf.addA[1]);
+        b = randomInt(conf.addB[0], conf.addB[1]);
+        if (a < b) [a, b] = [b, a]; 
         currentAnswer = a - b;
-        questionText = a + ' - ' + b;
+        questionText = `${a} - ${b}`;
       } else if (op === '*') {
-        let maxFactor = Math.min(maxNum, 12);
-        a = Math.floor(Math.random() * (maxFactor - 1)) + 2; 
-        b = Math.floor(Math.random() * (maxFactor - 1)) + 2;
+        a = randomInt(conf.mulA[0], conf.mulA[1]);
+        b = randomInt(conf.mulB[0], conf.mulB[1]);
         currentAnswer = a * b;
-        questionText = a + ' * ' + b;
+        questionText = `${a} * ${b}`;
       } else if (op === '/') {
-        let maxDivisor = Math.min(maxNum, 12);
-        b = Math.floor(Math.random() * (maxDivisor - 1)) + 2;
-        currentAnswer = Math.floor(Math.random() * 11) + 2;
-        a = b * currentAnswer; 
-        questionText = a + ' / ' + b;
+        b = randomInt(conf.mulB[0], conf.mulB[1]); 
+        currentAnswer = randomInt(conf.mulA[0], conf.mulA[1]); 
+        a = b * currentAnswer;
+        questionText = `${a} / ${b}`;
       } else if (op === '^2') {
-        a = Math.floor(Math.random() * 15) + 2;
+        a = randomInt(conf.sq[0], conf.sq[1]);
         currentAnswer = a * a;
-        questionText = a + '²';
+        questionText = `${a}²`;
       } else if (op === '√') {
-        currentAnswer = Math.floor(Math.random() * 15) + 2;
+        currentAnswer = randomInt(conf.sq[0], conf.sq[1]);
         a = currentAnswer * currentAnswer;
-        questionText = '√' + a;
+        questionText = `√${a}`;
       }
       
       document.getElementById('question').innerText = questionText;
@@ -387,7 +420,15 @@
       let userAns = parseInt(document.getElementById('answer').value);
       if (userAns === currentAnswer) {
         score++;
-        generateQuestion();
+        updateUI();
+        
+        if (score === 100) {
+          endGame(true);
+        } else if (score % 10 === 0) {
+          showLevelUp();
+        } else {
+          generateQuestion();
+        }
       } else {
         triggerDamage();
       }
@@ -395,6 +436,12 @@
 
     document.getElementById('answer').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') checkAnswer();
+    });
+
+    document.getElementById('levelUpModal').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter' && this.style.display === 'flex') {
+        startNextLevel();
+      }
     });
 
     generateQuestion();
